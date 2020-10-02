@@ -1,4 +1,11 @@
 use yara::*;
+use std::path::Path;
+
+pub struct Scanner {
+    rule: Rules,
+    path: Path,
+    
+}
 
 pub fn scan(rules: &Rules, path: String, verbose: bool) {
     match rules.scan_file(path.clone(), 5) {

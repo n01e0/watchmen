@@ -1,10 +1,12 @@
 #[macro_use]
 extern crate clap;
 
+use std::process::exit;
 use std::fs;
 use walkdir::WalkDir;
 use yara::*;
 
+mod config;
 mod scanner;
 
 fn main() {
@@ -14,37 +16,33 @@ fn main() {
         (about:         crate_description!())
         (@arg quiet: -q --quiet "quiet mode")
         (@arg verbose: -v --verbose "verbose mode")
-        (@arg rule:     +required "yara rule file")
-        (@arg target:   +required "Scan target file")
+        (@arg config: -c --config +takes_value "config file")
+        (@arg daemonize: -d --daemonize "to daemonize")
+        (@arg rule:     "yara rule file(or dir)")
+        (@arg target:   "Scan target file(or dir)")
     )
     .get_matches();
 
-    let mut compiler = Compiler::new().unwrap();
-
-    compiler
-        .add_rules_file(matches.value_of("rule").unwrap())
-        .expect("Can't add rules");
-    let rules = compiler.compile_rules().expect("Can't compile rules");
-
-    let target = matches.value_of("target").unwrap();
-
-    if fs::metadata(target).expect("Can't get metadata").is_dir() {
-        for entry in WalkDir::new(target)
-            .follow_links(true)
-            .into_iter()
-            .filter_map(|e| e.ok())
-            .filter(|e| !fs::metadata(e.path()).expect("Can't get metadata").is_dir())
-        {
-            if !matches.is_present("quiet") {
-                println!("scanning ... {}", entry.path().display());
+    let mut config = match matches.value_of("config") {
+        Some(path) => {
+            let content = fs::read_to_string(path).unwrap_or_else(|e| {eprintln!("{}", e); exit(1); });
+            match config::Config::new(Some(content)) {
+                Ok(config) => {
+                    println!("{:#?}", config);
+                    config
+                },
+                Err(e) => {
+                    eprintln!("{}", e);
+                    exit(1);
+                }
             }
-            scanner::scan(
-                &rules,
-                entry.path().to_str().unwrap().into(),
-                matches.is_present("verbose"),
-            );
-        }
-    } else {
-        scanner::scan(&rules, target.into(), matches.is_present("verbose"));
-    }
+        },
+        None => {
+            config::Config::new(None).unwrap()
+
+            // Scannerに読み込む時に設定されてない部分をdefault valueで埋めようかな
+        },
+    };
+
+
 }

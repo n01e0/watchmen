@@ -1,0 +1,10 @@
+[log]
+path = "/var/log/watchmen"
+level = "low"
+
+[rule]
+path = "/etc/watchmen/rules"
+
+[target]
+pathes = ["/"]
+exclude = ["/etc", "/var"]
